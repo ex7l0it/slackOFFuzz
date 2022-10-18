@@ -1,12 +1,12 @@
 
 # LazyCrasher
 
-## Description
+## 简介
 
-A script to automatically detect the output of AFL crashes, with the ability to add timed tasks to automatically retrieve whether new crashes are generated in the crashes folder and send notifications. If afl-utils is available, afl-collect can be called automatically for further filtering of crashes.
+一个自动检测 AFL crashes 输出的脚本，可以添加定时任务执行，自动检测 crashes 文件夹中是否有新的崩溃产生并发送通知。如果已经安装 afl-utils，可自动调用 afl-collect 以进一步处理crashes。
 
 
-## Usage
+## 使用说明
 
 ```shell
 ✗ python3 listen.py --help           
@@ -27,35 +27,35 @@ options:
 ```
 
 
-## Run
+## 运行
 
-Manual execution:
+手动执行：
 
-```shell
-$ python3 listen.py -d Datas -l 1 -t 20 -v
+```
+$ python3 listen.py -d Datas -l 1 -t 20 -v 
 ```
 
-Auto execution: Add to the crontab
+定时运行：添加到 crontab
 
 ```
 * 1 * * * python3 listen.py -d Datas -l 1 -t 60 -v > /tmp/log.txt
 ```
 
-## Process
+## 流程
 
-### Step 1: Start the AFL fuzzer (By yourself)
+### Step 1: 手动启动 AFL fuzzer
 
 ```shell
 $ afl-fuzz -M fuzzer01 -i <AFL_Fuzz_Datas_Path>/<Project_name>/input -o <AFL_Fuzz_Datas>/<Project_name>/output -- <target> --target-opts
 $ afl-fuzz -S fuzzer02 -i <AFL_Fuzz_Datas_Path>/<Project_name>/input -o <AFL_Fuzz_Datas>/<Project_name>/output -- <target> --target-opts
 ```
 
-Notice:
+注意:
 
-- Use absolute path args to run `afl-fuzz`
+- 运行 `afl-fuzz` 时尽量使用绝对路径指定目录和可执行程序
 
 
-AFL input & output Folder structure:
+AFL input & output 文件夹结构:
 
 ```shell
 AFL_Fuzz_Datas
@@ -72,26 +72,26 @@ AFL_Fuzz_Datas
 │   ├── output
 ```
 
-### Step 2: Run this Script to Listen crashes output
+### Step 2: 运行该脚本用于监听crashes文件夹
 
-crashes Path: `<AFL_Fuzz_Datas>/<Project_name>/output/<fuzzer01>/crashes/`
+crashes 路径: `<AFL_Fuzz_Datas>/<Project_name>/output/<fuzzer01>/crashes/`
 
-After the script is executed, the crashes directory will be scanned to find whether there are new files within the specified time. If there are new files, the next step will be taken
+脚本执行后，它将会扫描 crashes 目录，当检测到有新的 crash 产生时进行下一步操作
 
-### Step 3: Invoke afl-collect (if available)
+### Step 3: 调用 afl-collect (如果可用)
 
-If `afl-collect` is available (installed [afl-utils](https://gitlab.com/rc0r/afl-utils) ), then `afl-collect` will be invoked to collect and process the crashes.
+如果 `afl-collect` 可用 (已安装 [afl-utils](https://gitlab.com/rc0r/afl-utils) ), 那么执行 `afl-collect` 用于收集和处理crashes
 
-Will execute this command:
+将会执行以下命令:
 
 ```shell
 $ afl-collect -j 8 -e gdb_script -r -rr <AFL_Fuzz_Datas>/<Project_name>/output <AFL_Fuzz_Datas>/<Project_name>/collections -- <target> --target-opts
 ```
 
 
-### Step 4: Send message 
+### Step 4: 消息推送
 
-The processed result message will be sent via Brak or Dingding
+使用 Bark 或 钉钉机器人 发送通知
 
 Service:
 - [Brak](https://github.com/Finb/Bark)
@@ -99,7 +99,7 @@ Service:
 
 ## TODO
 
-1. Use `afl-tmin` to minimize the crashes
-2. Auto generate the Issue's Markdown file by using the template.
-3. Auto run the `afl-fuzz`
-4. Auto submit CVE requests
+1. 使用 `afl-tmin` 最小化 crash 
+2. 自动生成 Issue 的提交信息
+3. 第一步的 `afl-fuzz` 改为自动执行
+4. 自动提交 CVE 申请 🤔
