@@ -38,7 +38,8 @@ $ python3 listen.py -d Datas -l 1 -t 20 -v
 Auto execution: Add to the crontab
 
 ```
-* 1 * * * python3 listen.py -d Datas -l 1 -t 60 -v > /tmp/log.txt
+start.sh arg1 (arg1 is `--time` to run the listen.py)
+* */1 * * * <path>/start.sh > /tmp/log.txt
 ```
 
 ## Process

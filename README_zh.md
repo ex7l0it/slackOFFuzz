@@ -38,7 +38,8 @@ $ python3 listen.py -d Datas -l 1 -t 20 -v
 定时运行：添加到 crontab
 
 ```
-* 1 * * * python3 listen.py -d Datas -l 1 -t 60 -v > /tmp/log.txt
+start.sh 参数1 (参数1为给listen.py的 --time 参数)
+* */1 * * * <path>/start.sh 60 > /tmp/log.txt 
 ```
 
 ## 流程
@@ -97,9 +98,23 @@ Service:
 - [Brak](https://github.com/Finb/Bark)
 - [Dingding](https://open.dingtalk.com/document/group/custom-robot-access)
 
+消息推送相关配置修改：
+
+1. 编辑 message.py 文件，自行添加 token 等信息
+2. 编辑 listen.py 文件，自行选择启用 Bark 或 钉钉机器人
+
+```shell
+## listen.py:10
+# Message Send Service
+Bark_msg_enabled = True
+Ding_msg_enabled = False
+```
+
+
 ## TODO
 
 1. 使用 `afl-tmin` 最小化 crash 
 2. 自动生成 Issue 的提交信息
 3. 第一步的 `afl-fuzz` 改为自动执行
-4. 自动提交 CVE 申请 🤔
+4. 自动识别漏洞类型(CWE)
+5. 自动提交 CVE 申请 🤔
