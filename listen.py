@@ -5,11 +5,13 @@ from subprocess import Popen, PIPE, getstatusoutput
 import shutil
 from urllib.parse import quote
 from message import *
+import time
 
 FuzzProjectDataPath = "./AFL_Fuzz_Datas"
 # Message Send Service
 Bark_msg_enabled = True
 Ding_msg_enabled = False
+Email_msg_enabled = False
 
 
 # Regular Colour
@@ -75,6 +77,7 @@ def env_check():
 def watch_output(software, listen_time):
     listen_path = os.path.join(FuzzProjectDataPath, software) if software is not None else FuzzProjectDataPath
     path_check(listen_path)
+    print(Green, "[+]", Norm, "DateTime:", Green, time.asctime( time.localtime(time.time()) ), Norm)
     print(Green, "[+]", Norm, "Listen:", Green, listen_path, Norm)
 
     # Search for crashes directory
@@ -136,7 +139,6 @@ def watch_output(software, listen_time):
         if verbose:
             print(Yellow, "[!]", Norm, f"Send Message--> title: {msg_title}, content: {msg_content}")
 
-    # TODO invoke afl-collcet
     collect_list_ = []
     if collect_list != {} and AFL_utils_enabled:
         print(Cyan, "[+]", Norm, "Invoke afl-collcet....")
@@ -145,14 +147,21 @@ def watch_output(software, listen_time):
             try:
                 with open(os.path.join(collect_list[item]["crash_fold_path"], "README.txt"), "r") as f:
                     cmd = f.readlines()[2].strip()
+                    f.close()
                     cmds = cmd.split()
                     arg_input = collect_list[item]["output_fold_path"]
                     arg_output = collect_list[item]["collection_fold_path"]
                     arg_cmd = cmds[cmds.index("--")+1:]
 
+                    # TODO delete old gdb_script file
+                    
+
+                    
                     process = Popen(["find", arg_output, "-type", "f", "!", "-name", "gdb_script"], stdout=PIPE, stderr=PIPE)
                     stdout, stderr = process.communicate()
                     old_num = len(stdout.split(b"\n"))
+                    if verbose:
+                        print(Yellow, "Log(collections-nums[old]):", Norm, old_num)
 
                     # run afl-collect command:
                     run_args = ["afl-collect", "-j", "8", "-e", "gdb_script", "-r", "-rr", arg_input, arg_output, "--"]
@@ -167,24 +176,23 @@ def watch_output(software, listen_time):
                     else:
                         process = Popen(run_args, stdout=PIPE, stderr=PIPE, env=env_tmp)
                         stdout, stderr = process.communicate(timeout=600)
-                    # if verbose:
-                    #     print(Yellow, "Log(afl-collect_stdout):", Norm, stdout.decode())
-                    f.close()
+
                 
                 process = Popen(["find", arg_output, "-type", "f", "!", "-name", "gdb_script"], stdout=PIPE, stderr=PIPE)
                 stdout, stderr = process.communicate()
                 if verbose:
                     print(Yellow, "Log(find_stdout):", Norm, stdout.decode())
                 if stdout:
-                    
                     new_num = len(stdout.split(b"\n"))
                     if new_num-old_num > 0:
                         collect_list_.append((item, new_num-old_num)) 
+                    if verbose:
+                        print(Yellow, "Log(collections-nums[new]):", Norm, new_num)
             except Exception as e:
                 print(Red, "[!]", e, Norm)
 
         if collect_list_ != []:
-            msg_title = "发现新的Crash(By afl-collect)!"
+            msg_title = "发现新的Crash(After afl-collect)!"
             msg_content = ""
             for item in collect_list_:
                 msg_content += quote(f"Software {item[0]} find {item[1]} new crashes.\n")
@@ -192,6 +200,8 @@ def watch_output(software, listen_time):
                 send_bark(msg_title, msg_content)
             if Ding_msg_enabled:
                 send_dingtalk(msg_title, msg_content)
+            if Email_msg_enabled:
+                send_email(msg_title, msg_content)
             if verbose:
                 print(Yellow, "[!]", Norm, f"Send Message--> title: {msg_title}, content: {msg_content}")
 

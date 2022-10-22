@@ -5,6 +5,32 @@ import urllib.parse
 import hashlib
 import base64
 import json
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
+
+### Start of SMTP Send Email
+
+mail_host="smtp.qq.com"  # 设置服务器
+mail_user="username"     # 用户名
+mail_pass="password"     # 口令 
+receivers = ['xxx@xxx.com']  # 接收邮箱
+
+def send_email(title, content):
+    try:
+        smtpObj = smtplib.SMTP() 
+        smtpObj.connect(mail_host, 25)    # 25 为 SMTP 端口号
+        smtpObj.login(mail_user,mail_pass)
+        message = MIMEText(title, 'plain', 'utf-8')
+        message['From'] = Header("LazyCrasher", 'utf-8')
+        message['To'] =  Header("", 'utf-8')
+        
+        message['Subject'] = Header(content, 'utf-8')
+        smtpObj.sendmail(mail_user, receivers, message.as_string())
+    except smtplib.SMTPException:
+        print ("Error: 邮件发送失败")
+
+### End of SMTP Send Email
 
 ### Start of Bark
 
@@ -50,4 +76,6 @@ def send_dingtalk(title, content):
 
 if __name__ == '__main__':
     # test send_bark
-    send_bark("test")
+    # send_bark("test")
+    # test send_email
+    send_email("Test", "测试内容")
