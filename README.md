@@ -103,13 +103,14 @@ Service:
 消息推送相关配置修改：
 
 1. 编辑 message.py 文件，自行添加 token 等信息
-2. 编辑 listen.py 文件，自行选择启用 Bark 或 钉钉机器人
+2. 编辑 listen.py 文件，自行选择启用 Bark/钉钉机器人/Email
 
 ```shell
 ## listen.py:10
 # Message Send Service
 Bark_msg_enabled = True
 Ding_msg_enabled = False
+Email_msg_enabled = False
 ```
 
 
