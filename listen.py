@@ -1,5 +1,5 @@
 import os
-import sys
+import re
 import argparse
 from subprocess import Popen, PIPE, getstatusoutput
 import shutil
@@ -74,6 +74,47 @@ def env_check():
     print(Green, "[*]", Norm, "Pass checking environment.")
 
 
+"""
+    处理collections文件夹, 提取ASAN的输出, 进行crashes去重
+"""
+def minimize_crashes(readme_file, collections_path):
+    crashes = os.listdir(collections_path)
+
+    with open(readme_file, "r") as f:
+        cmd = f.readlines()[2].strip()
+        f.close()
+        cmds = cmd.split()
+        arg_cmd = cmds[cmds.index("--")+1:]
+        print(arg_cmd)
+
+    crash_set = []
+
+    for crash in crashes:
+        crash_path = os.path.join(collections_path, crash)
+        run_ = ' '.join([arg.replace("@@", crash_path) for arg in arg_cmd])
+        # print(run_)
+        process = Popen(run_, stdout=PIPE, stderr=PIPE, shell=True)
+        stdout, stderr = process.communicate()
+
+        res = re.findall("SUMMARY: (.*): (.*) (.*) in (.*)", stderr.decode())
+        if res != []:
+            data = res[0]
+            crash_line = data[1]
+            if crash_line not in crash_set:
+                print("Count: {}".format(len(crash_set)), res)
+                crash_set.append(crash_line)
+                # rename (poc x)
+                new_crash_path = os.path.join(collections_path, "poc{}".format(len(crash_set)))
+                os.rename(crash_path, new_crash_path)
+                if verbose:
+                    print("[+] new crash name:", new_crash_path)
+            else:
+                # delete file
+                os.remove(crash_path)
+    # TODO 返回值加入发现的crash详情
+    return len(crash_set)
+
+
 def watch_output(software, listen_time):
     listen_path = os.path.join(FuzzProjectDataPath, software) if software is not None else FuzzProjectDataPath
     path_check(listen_path)
@@ -145,17 +186,14 @@ def watch_output(software, listen_time):
         for item in collect_list:
             print(Green, "[+]", Norm, "Now:", item)
             try:
-                with open(os.path.join(collect_list[item]["crash_fold_path"], "README.txt"), "r") as f:
+                readme_path = os.path.join(collect_list[item]["crash_fold_path"], "README.txt")
+                with open(readme_path, "r") as f:
                     cmd = f.readlines()[2].strip()
                     f.close()
                     cmds = cmd.split()
                     arg_input = collect_list[item]["output_fold_path"]
                     arg_output = collect_list[item]["collection_fold_path"]
                     arg_cmd = cmds[cmds.index("--")+1:]
-
-                    # TODO delete old gdb_script file
-                    
-
                     
                     process = Popen(["find", arg_output, "-type", "f", "!", "-name", "gdb_script"], stdout=PIPE, stderr=PIPE)
                     stdout, stderr = process.communicate()
@@ -166,18 +204,21 @@ def watch_output(software, listen_time):
                     # run afl-collect command:
                     run_args = ["afl-collect", "-j", "8", "-e", "gdb_script", "-r", "-rr", arg_input, arg_output, "--"]
                     run_args.extend(arg_cmd)
+                    run_ = "ASAN_OPTIONS=abort_on_error=1:symbolize=0 " + ' '.join(run_args)
                     if verbose:
                         print(Yellow, "Log(command):", Norm, ' '.join(run_args))
                     env_tmp = os.environ.copy()
                     env_tmp["ASAN_OPTIONS"] = "abort_on_error=1:symbolize=0"
                     if verbose:
-                        process = Popen(run_args, env=env_tmp)
+                        process = Popen(run_, env=env_tmp, shell=True)
                         process.wait(timeout=600)
                     else:
                         process = Popen(run_args, stdout=PIPE, stderr=PIPE, env=env_tmp)
                         stdout, stderr = process.communicate(timeout=600)
 
-                
+                attention_num = minimize_crashes(readme_path, collect_list[item]["collection_fold_path"])
+
+                # 统计去重后的crashes数量
                 process = Popen(["find", arg_output, "-type", "f", "!", "-name", "gdb_script"], stdout=PIPE, stderr=PIPE)
                 stdout, stderr = process.communicate()
                 if verbose:
@@ -188,14 +229,16 @@ def watch_output(software, listen_time):
                         collect_list_.append((item, new_num-old_num)) 
                     if verbose:
                         print(Yellow, "Log(collections-nums[new]):", Norm, new_num)
+                        print(Yellow, "Log(collections-nums[attention]):", Norm, attention_num)
             except Exception as e:
                 print(Red, "[!]", e, Norm)
+                attention_num = 0
 
         if collect_list_ != []:
             msg_title = "发现新的Crash(After afl-collect)!"
             msg_content = ""
             for item in collect_list_:
-                msg_content += quote(f"Software {item[0]} find {item[1]} new crashes.\n")
+                msg_content += quote(f"Software {item[0]} find {item[1]} new crashes.\nNeeds attention number: {attention_num}")
             if Bark_msg_enabled:
                 send_bark(msg_title, msg_content)
             if Ding_msg_enabled:
@@ -207,6 +250,7 @@ def watch_output(software, listen_time):
 
     print(Green, "[*]", Norm, "Finish invoke afl-collect.")            
     # TODO invoke afl-tmin
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Lazycrasher opts")

@@ -90,6 +90,10 @@ crashes 路径: `<AFL_Fuzz_Datas>/<Project_name>/output/<fuzzer01>/crashes/`
 $ afl-collect -j 8 -e gdb_script -r -rr <AFL_Fuzz_Datas>/<Project_name>/output <AFL_Fuzz_Datas>/<Project_name>/collections -- <target> --target-opts
 ```
 
+#### Step 3-1: crashe去重 
+
+使用 collect 后的 crashes 运行程序，获取 ASAN 的 SUMMARY 输出信息，根据行号信息剔除重复项(保留无法获取 ASAN Summary的crashes), 并进行重命名便于人工进行下一步分析 (poc1/poc2/...)
+
 
 ### Step 4: 消息推送
 
@@ -116,9 +120,15 @@ Email_msg_enabled = False
 
 ## TODO
 
-1. 使用 `afl-tmin` 最小化 crash 
-2. 自动生成 Issue 的提交信息
-3. 第一步的 `afl-fuzz` 改为自动执行
-4. 自动识别漏洞类型(CWE)
-5. 自动提交 CVE 申请 🤔
-6. ~~添加邮件消息推送方式~~
+- [ ] 推送消息添加ASAN输出内容详情
+- [ ] 调用GDB对其他crashes进行分析
+- [ ] 使用 `afl-tmin` 最小化 crash 
+- [ ] 自动生成 Issue 的提交信息
+- [ ] 第一步的 `afl-fuzz` 改为自动执行
+- [ ] 自动识别漏洞类型(CWE)
+- [ ] 自动提交 CVE 申请 🤔
+- [x] ~~添加邮件消息推送方式~~
+
+## 最近更新内容
+
+- 2022-11-2: 添加对collections内的crashes去重操作, 修复一些小bug
