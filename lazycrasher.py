@@ -97,6 +97,7 @@ def minimize_crashes(readme_file, collections_path):
         stdout, stderr = process.communicate()
 
         res = re.findall("SUMMARY: (.*): (.*) (.*) in (.*)", stderr.decode())
+        res2 = re.findall("segment fault", stderr.decode())
         if res != []:
             data = res[0]
             crash_line = data[1]
@@ -254,6 +255,7 @@ def watch_output(software, listen_time):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Lazycrasher opts")
+    parser.add_argument('-a', '--add-task', type=str, help="Add a new fuzz project task")
     parser.add_argument('-d', '--data-path', type=str, help=f"Path to save fuzz projects' input & output data [Default: {FuzzProjectDataPath}]")
     parser.add_argument('-t', '--time', type=int, help="Set the time from the current time when the search crash occurs")
     parser.add_argument('-s', '--software', type=str, help="Software to search for fuzz projects, Default: None (Search All fuzz projects)")
@@ -261,14 +263,28 @@ def parse_args():
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help="Show all debug messages")
     return parser.parse_args()
 
+def add_task(task_name):
+    if not os.path.exists("tasks"):
+        os.mkdir("tasks")
+    task_path = os.path.join("tasks", task_name)
+    if not os.path.exists(task_path):
+        os.mkdir(task_path)
+        os.mkdir(os.path.join(task_path, "input"))
+        print(Green, "[+]", Norm, f"Add task {task_name} successfully! Please add the fuzz input to {task_path}/input")
+    else:
+        print(Red, "[!]", Norm, f"Task {task_name} already exists!")
+    
 
 if __name__ == '__main__':
     # banner()
     args = parse_args()
-    if args.data_path:
-        FuzzProjectDataPath = args.data_path
-    else:
-        print(Yellow, "[*]", Norm, "Not set the Data path. Using Default data path:", Yellow, FuzzProjectDataPath, Norm)
+    if args.add_task:
+        add_task(args.add_task)
+        exit(0)
+    # if args.data_path:
+    #     FuzzProjectDataPath = args.data_path
+    # else:
+    #     print(Yellow, "[*]", Norm, "Not set the Data path. Using Default data path:", Yellow, FuzzProjectDataPath, Norm)
     listen_time = args.time if args.time else 10
     software = args.software
     loglevel = args.log_level if args.log_level == 1 else 0

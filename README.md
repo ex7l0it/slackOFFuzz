@@ -9,8 +9,8 @@
 ## 使用说明
 
 ```shell
-✗ python3 listen.py --help           
-usage: listen.py [-h] [-d DATA_PATH] [-t TIME] [-s SOFTWARE] [-l LOG_LEVEL] [-v]
+✗ python3 lazycrasher.py --help           
+usage: lazycrasher.py [-h] [-d DATA_PATH] [-t TIME] [-s SOFTWARE] [-l LOG_LEVEL] [-v]
 
 Lazycrasher opts
 
@@ -27,7 +27,24 @@ options:
 ```
 
 
-## 运行
+## 操作流程
+
+1. 下载目标库源码，手动进行编译
+
+```shell
+export CFLAGS="-fsanitize=address"
+export CXXFLAGS="-fsanitize=address"
+export CC=afl-clang-fast
+export CXX=afl-clang-fast++
+export AFL_USE_ASAN=1
+```
+
+2. 运行脚本，创建一个任务文件夹
+
+```shell
+
+```
+
 
 手动执行：
 
@@ -39,9 +56,12 @@ $ python3 listen.py -d Datas -l 1 -t 20 -v
 
 ```
 start.sh 参数1 (参数1为给listen.py的 --time 参数)
-# 7-22点之间每隔两个小时执行一次脚本
+# 7-22点之间每隔两个小时执行一次脚本（检测执行脚本时两个小时内产生的新crashes）
 0 7-22/2 * * * <path>/start.sh 120
 ```
+
+> 说明一下: 定时任务在添加后不会立即执行, 而是根据配置的时间去间隔执行, 所以检测crashes也不是实时的
+
 
 ## 流程
 
