@@ -3,7 +3,7 @@
 
 ## 简介
 
-一个自动检测 AFL crashes 输出的脚本，可以添加定时任务执行，自动检测 crashes 文件夹中是否有新的崩溃产生并发送通知。如果已经安装 afl-utils，可自动调用 afl-collect 以进一步处理crashes。
+一个自动检测 AFL crashes 输出的脚本，可自动启动afl-fuzz，可以添加定时任务执行，自动检测 crashes 文件夹中是否有新的崩溃产生并发送通知。如果已经安装 afl-utils，可自动调用 afl-collect 以进一步处理crashes。
 
 ## 依赖环境安装
 
@@ -48,6 +48,8 @@ export AFL_USE_ASAN=1
 
 ### Step 2. 运行脚本，创建一个任务文件夹 (以gpac为例)
 
+- 这里要输入的绝对路径加参数信息就是 afl-fuzz 命令 -- 后面的那一部分
+
 ```shell
 $ python3 lazycrasher.py -a gpac 
  [+]  Please input the fuzz target program absolute path with args:
@@ -74,7 +76,7 @@ $ python3 lazycrasher.py -r gpac
 tmux a -t fuzz_gpac
 ```
 
-### Step 6. 如果没有问题，那么可以 Ctrl+d 退出 tmux 会话，开启 crontab 计划任务
+### Step 6. 如果没有问题，那么可以 Ctrl+b d 退出 tmux 会话，开启 crontab 计划任务
 
 ```shell
 $ crontab -e
