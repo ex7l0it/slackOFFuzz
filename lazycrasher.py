@@ -6,8 +6,9 @@ import shutil
 from urllib.parse import quote
 from message import *
 import time
+import libtmux
 
-FuzzProjectDataPath = "./AFL_Fuzz_Datas"
+FuzzProjectDataPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tasks")
 # Message Send Service
 Bark_msg_enabled = True
 Ding_msg_enabled = False
@@ -65,6 +66,8 @@ def env_check():
     global AFL_utils_enabled
     global loglevel
     print(Cyan, "[*]", Norm, "Checking Environment...")
+    if not command_check("tmux -V"):
+        exit(1)
     if not command_check("afl-fuzz"):
         exit(1)
     if command_check("afl-collect"):
@@ -136,7 +139,7 @@ def watch_output(software, listen_time):
     for crash_fold in stdout.splitlines():
         crash_fold = crash_fold.decode()
         crash_software_name = crash_fold.split("/")[-4]
-
+        # print(crash_fold)
         process = Popen(["find", crash_fold, "-type", "f", "-mmin", f"-{listen_time}"], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         if stdout:
@@ -167,7 +170,7 @@ def watch_output(software, listen_time):
                 else:
                     print(Red, "[!] Can not find the crashes/README.txt", Norm)
         
-    # print(collect_list)
+    # print(collect_list) 
 
     if collect_list != {} and loglevel == 0:
         msg_title = "发现新的Crash!"
@@ -256,7 +259,8 @@ def watch_output(software, listen_time):
 def parse_args():
     parser = argparse.ArgumentParser(description="Lazycrasher opts")
     parser.add_argument('-a', '--add-task', type=str, help="Add a new fuzz project task")
-    parser.add_argument('-d', '--data-path', type=str, help=f"Path to save fuzz projects' input & output data [Default: {FuzzProjectDataPath}]")
+    parser.add_argument('-r', '--run', type=str, help="Run a fuzz project task")
+    # parser.add_argument('-d', '--data-path', type=str, help=f"Path to save fuzz projects' input & output data [Default: {FuzzProjectDataPath}]")
     parser.add_argument('-t', '--time', type=int, help="Set the time from the current time when the search crash occurs")
     parser.add_argument('-s', '--software', type=str, help="Software to search for fuzz projects, Default: None (Search All fuzz projects)")
     parser.add_argument('-l', '--log-level', type=int, help="Level of Sending message: [0] Send message when find new crashes(not collect) [Default] | [1] Send message when find useful crashes (after collect)")
@@ -264,33 +268,103 @@ def parse_args():
     return parser.parse_args()
 
 def add_task(task_name):
-    if not os.path.exists("tasks"):
-        os.mkdir("tasks")
-    task_path = os.path.join("tasks", task_name)
+    # 获取 fuzz target 程序绝对路径以及程序参数
+    print(Green, "[+]", Norm, "Please input the fuzz target program absolute path with args:")
+    input_line = input()
+    fuzz_target_path = input_line.split(" ")[0]
+    fuzz_target_args = input_line.split(" ")[1:]
+    if not os.path.exists(fuzz_target_path):
+        print(Red, "[!]", Norm, "Fuzz target program path not exists!")
+        exit(0)
+
+    if not os.path.exists(FuzzProjectDataPath):
+        os.mkdir(FuzzProjectDataPath)
+    task_path = os.path.join(FuzzProjectDataPath, task_name)
     if not os.path.exists(task_path):
         os.mkdir(task_path)
+        with open(os.path.join(task_path, "info.txt"), "w") as f:
+            f.write(input_line)
         os.mkdir(os.path.join(task_path, "input"))
-        print(Green, "[+]", Norm, f"Add task {task_name} successfully! Please add the fuzz input to {task_path}/input")
+        absolute_task_path = os.path.abspath(task_path)
+        print(Green, "[+]", Norm, f"Add task {task_name} successfully! Please add the fuzz input to {absolute_task_path}/input")
     else:
         print(Red, "[!]", Norm, f"Task {task_name} already exists!")
     
+def run_task(task_name):
+    # 检查 FuzzProjectDataPath 目录是否存在
+    if not os.path.exists(FuzzProjectDataPath):
+        print(Red, "[!]", Norm, "Tasks is None!")
+        exit(0)
+    task_path = os.path.join(FuzzProjectDataPath, task_name)
+    if not os.path.exists(task_path):
+        print(Red, "[!]", Norm, f"Task {task_name} not exists!")
+        exit(0)
+    # 检查是否有tmux会话
+    tmux_session_name = "fuzz_{}".format(task_name)
+    tmux_session = libtmux.Server().sessions.filter(session_name=tmux_session_name)
+    if tmux_session:
+        print(Red, "[!]", Norm, f"Task {task_name} already running! Please use 'tmux attach -t {tmux_session_name}' to attach the tmux session.")
+        exit(0)
+    # 读取 fuzz target 程序绝对路径以及程序参数
+    try:
+        with open(os.path.join(task_path, "info.txt"), "r") as f:
+            input_line = f.read()
+        
+        afl_command = "afl-fuzz -i {} -o {} -M fuzzer01 -- {}".format(
+            os.path.join(task_path, "input"),
+            os.path.join(task_path, "output"),
+            input_line
+        )
+        # 创建一个 tmux 会话并运行 afl-fuzz
+        tmux_session = libtmux.Server().new_session(
+            session_name=tmux_session_name,
+        )
+        tmux_window = tmux_session.attached_window
+        tmux_window.rename_window("master-fuzzer01")
+        tmux_pane = tmux_window.attached_pane
+        tmux_pane.send_keys(afl_command)
+
+        # 启动一个新的窗口
+        tmux_window = tmux_session.new_window(window_name="slave-fuzzer02")
+        tmux_pane = tmux_window.attached_pane
+        afl_command = "afl-fuzz -i {} -o {} -S fuzzer02 -- {}".format(
+            os.path.join(task_path, "input"),
+            os.path.join(task_path, "output"),
+            input_line
+        )
+        tmux_pane.send_keys(afl_command)
+
+        # 启动一个新的窗口
+        tmux_window = tmux_session.new_window(window_name="slave-fuzzer03")
+        tmux_pane = tmux_window.attached_pane
+        afl_command = "afl-fuzz -i {} -o {} -S fuzzer03 -- {}".format(
+            os.path.join(task_path, "input"),
+            os.path.join(task_path, "output"),
+            input_line
+        )
+        tmux_pane.send_keys(afl_command)
+
+        print(Green, "[+]", Norm, "Start fuzzing..., Please use `tmux a -t {}` to attach the tmux session.".format(tmux_session_name))
+
+    except Exception as e:
+        print(Red, "[!]", Norm, "Read task info failed!", e)
+        exit(1)
 
 if __name__ == '__main__':
     # banner()
+    env_check()
     args = parse_args()
     if args.add_task:
         add_task(args.add_task)
         exit(0)
-    # if args.data_path:
-    #     FuzzProjectDataPath = args.data_path
-    # else:
-    #     print(Yellow, "[*]", Norm, "Not set the Data path. Using Default data path:", Yellow, FuzzProjectDataPath, Norm)
+    if args.run:
+        run_task(args.run)
+        exit(0)
+    
     listen_time = args.time if args.time else 10
     software = args.software
     loglevel = args.log_level if args.log_level == 1 else 0
     verbose = args.verbose
-    
-    env_check()
 
     try:
         watch_output(software=software, listen_time=listen_time)

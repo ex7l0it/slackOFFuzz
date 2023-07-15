@@ -5,19 +5,26 @@
 
 一个自动检测 AFL crashes 输出的脚本，可以添加定时任务执行，自动检测 crashes 文件夹中是否有新的崩溃产生并发送通知。如果已经安装 afl-utils，可自动调用 afl-collect 以进一步处理crashes。
 
+## 依赖环境安装
+
+```shell
+sudo apt update && sudo apt install tmux python3 python3-pip -y
+pip3 install -r requirements.txt
+```
 
 ## 使用说明
 
 ```shell
 ✗ python3 lazycrasher.py --help           
-usage: lazycrasher.py [-h] [-d DATA_PATH] [-t TIME] [-s SOFTWARE] [-l LOG_LEVEL] [-v]
+usage: lazycrasher.py [-h] [-a ADD_TASK] [-r RUN] [-t TIME] [-s SOFTWARE] [-l LOG_LEVEL] [-v]
 
 Lazycrasher opts
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
-  -d DATA_PATH, --data-path DATA_PATH
-                        Path to save fuzz projects' input & output data [Default: ./AFL_Fuzz_Datas]
+  -a ADD_TASK, --add-task ADD_TASK
+                        Add a new fuzz project task
+  -r RUN, --run RUN     Run a fuzz project task
   -t TIME, --time TIME  Set the time from the current time when the search crash occurs
   -s SOFTWARE, --software SOFTWARE
                         Software to search for fuzz projects, Default: None (Search All fuzz projects)
@@ -29,7 +36,7 @@ options:
 
 ## 操作流程
 
-1. 下载目标库源码，手动进行编译
+### Step 1. 下载目标库源码，手动进行编译
 
 ```shell
 export CFLAGS="-fsanitize=address"
@@ -39,48 +46,50 @@ export CXX=afl-clang-fast++
 export AFL_USE_ASAN=1
 ```
 
-2. 运行脚本，创建一个任务文件夹
+### Step 2. 运行脚本，创建一个任务文件夹 (以gpac为例)
 
 ```shell
-
+$ python3 lazycrasher.py -a gpac 
+ [+]  Please input the fuzz target program absolute path with args:
+/home/fuzz/FuzzProjects/202307/gpac/bin/gcc/MP4Box -info @@
+ [+]  Add task gpac successfully! Please add the fuzz input to /home/fuzz/slackOFFuzz/tasks/gpac/input
 ```
 
+### Step 3. 将种子放到刚刚打印出来的input目录下
 
-手动执行：
-
+```shell
+mv poc /home/fuzz/slackOFFuzz/tasks/gpac/input
 ```
-$ python3 listen.py -d Datas -l 1 -t 20 -v 
+
+### Step 4. 运行脚本，开始fuzz
+
+```shell
+$ python3 lazycrasher.py -r gpac
+ [+]  Start fuzzing..., Please use `tmux a -t fuzz_gpac` to attach the tmux session.
 ```
 
-定时运行：添加到 crontab
+### Step 5. 命令行进入 tmux 会话，查看任务执行情况
 
+```shell
+tmux a -t fuzz_gpac
 ```
-start.sh 参数1 (参数1为给listen.py的 --time 参数)
-# 7-22点之间每隔两个小时执行一次脚本（检测执行脚本时两个小时内产生的新crashes）
-0 7-22/2 * * * <path>/start.sh 120
+
+### Step 6. 如果没有问题，那么可以 Ctrl+d 退出 tmux 会话，开启 crontab 计划任务
+
+```shell
+$ crontab -e
+# 7-22点之间每隔两个小时执行一次脚本
+0 7-22/2 * * * /home/fuzz/slackOFFuzz/start.sh 120
 ```
 
 > 说明一下: 定时任务在添加后不会立即执行, 而是根据配置的时间去间隔执行, 所以检测crashes也不是实时的
 
-
-## 流程
-
-### Step 1: 手动启动 AFL fuzzer
-
-```shell
-$ afl-fuzz -M fuzzer01 -i <AFL_Fuzz_Datas_Path>/<Project_name>/input -o <AFL_Fuzz_Datas>/<Project_name>/output -- <target> --target-opts
-$ afl-fuzz -S fuzzer02 -i <AFL_Fuzz_Datas_Path>/<Project_name>/input -o <AFL_Fuzz_Datas>/<Project_name>/output -- <target> --target-opts
-```
-
-注意:
-
-- 运行 `afl-fuzz` 时尽量使用绝对路径指定目录和可执行程序
-
+## 其他
 
 AFL input & output 文件夹结构:
 
 ```shell
-AFL_Fuzz_Datas
+AFL_Fuzz_Datas(tasks)
 ├── vim
 │   ├── input
 │   ├── output
@@ -93,6 +102,12 @@ AFL_Fuzz_Datas
 │   ├── input
 │   ├── output
 ```
+
+## 脚本工作流程
+
+### Step 1: 创建任务并运行
+
+会在指定的 FuzzProjectDataPath 目录下创建任务文件夹，当用户将种子传入指定的input文件夹后，脚本可通过在 tmux 中创建 afl 任务启动 fuzz (采用并行模式, 创建三个afl-fuzz进程)
 
 ### Step 2: 运行该脚本用于监听crashes文件夹
 
@@ -127,10 +142,10 @@ Service:
 消息推送相关配置修改：
 
 1. 编辑 message.py 文件，自行添加 token 等信息
-2. 编辑 listen.py 文件，自行选择启用 Bark/钉钉机器人/Email
+2. 编辑 lazycrasher.py 文件，自行选择启用 Bark/钉钉机器人/Email
 
 ```shell
-## listen.py:10
+## lazycrasher.py:13
 # Message Send Service
 Bark_msg_enabled = True
 Ding_msg_enabled = False
@@ -151,4 +166,5 @@ Email_msg_enabled = False
 
 ## 最近更新内容
 
-- 2022-11-2: 添加对collections内的crashes去重操作, 修复一些小bug
+- 2023-07-15: 改为自动调用afl-fuzz，且保存到tmux会话
+- 2022-11-02: 添加对collections内的crashes去重操作, 修复一些小bug
