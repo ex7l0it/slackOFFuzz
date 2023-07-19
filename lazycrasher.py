@@ -83,6 +83,12 @@ def env_check():
 def minimize_crashes(readme_file, collections_path):
     crashes = os.listdir(collections_path)
 
+    # 获取旧的poc文件列表
+    old_poc_list = []
+    for crash in crashes:
+        if crash.startswith("poc"):
+            old_poc_list.append(crash)
+
     with open(readme_file, "r") as f:
         cmd = f.readlines()[2].strip()
         f.close()
@@ -91,8 +97,24 @@ def minimize_crashes(readme_file, collections_path):
         print(arg_cmd)
 
     crash_set = []
+    for crash in old_poc_list:
+        crash_path = os.path.join(collections_path, crash)
+        run_ = ' '.join([arg.replace("@@", crash_path) for arg in arg_cmd])
+        # print(run_)
+        process = Popen(run_, stdout=PIPE, stderr=PIPE, shell=True)
+        stdout, stderr = process.communicate()
+
+        res = re.findall("SUMMARY: (.*): (.*) (.*) in (.*)", stderr.decode())
+        if res != []:
+            data = res[0]
+            crash_line = data[1]
+            if crash_line not in crash_set:
+                print("Count: {}".format(len(crash_set)), res)
+                crash_set.append(crash_line)
 
     for crash in crashes:
+        if crash in old_poc_list:
+            continue
         crash_path = os.path.join(collections_path, crash)
         run_ = ' '.join([arg.replace("@@", crash_path) for arg in arg_cmd])
         # print(run_)
@@ -120,6 +142,7 @@ def minimize_crashes(readme_file, collections_path):
 
 
 def watch_output(software, listen_time):
+    # 检查是否有新的crashes
     listen_path = os.path.join(FuzzProjectDataPath, software) if software is not None else FuzzProjectDataPath
     path_check(listen_path)
     print(Green, "[+]", Norm, "DateTime:", Green, time.asctime( time.localtime(time.time()) ), Norm)

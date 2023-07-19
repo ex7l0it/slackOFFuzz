@@ -12,6 +12,9 @@ sudo apt update && sudo apt install tmux python3 python3-pip -y
 pip3 install -r requirements.txt
 ```
 
+> 测试服务器环境:  
+
+
 ## 使用说明
 
 ```shell
@@ -76,7 +79,9 @@ $ python3 lazycrasher.py -r gpac
 tmux a -t fuzz_gpac
 ```
 
-### Step 6. 如果没有问题，那么可以 Ctrl+b d 退出 tmux 会话，开启 crontab 计划任务
+### Step 6. 开启 crontab 计划任务进行监听
+
+如果没有问题，那么可以 Ctrl+b d 退出 tmux 会话，开启 crontab 计划任务进行监听，当发现有新的 crash 出现时发送通知
 
 ```shell
 $ crontab -e
@@ -127,6 +132,8 @@ crashes 路径: `<AFL_Fuzz_Datas>/<Project_name>/output/<fuzzer01>/crashes/`
 $ afl-collect -j 8 -e gdb_script -r -rr <AFL_Fuzz_Datas>/<Project_name>/output <AFL_Fuzz_Datas>/<Project_name>/collections -- <target> --target-opts
 ```
 
+> 注意: 这里是写死了用 8 个核心去跑的
+
 #### Step 3-1: crashe去重 
 
 使用 collect 后的 crashes 运行程序，获取 ASAN 的 SUMMARY 输出信息，根据行号信息剔除重复项(保留无法获取 ASAN Summary的crashes), 并进行重命名便于人工进行下一步分析 (poc1/poc2/...)
@@ -157,16 +164,18 @@ Email_msg_enabled = False
 
 ## TODO
 
+- [ ] 改用 logging 打印日志
 - [ ] 推送消息添加ASAN输出内容详情
 - [ ] 调用GDB对其他crashes进行分析
 - [ ] 使用 `afl-tmin` 最小化 crash 
 - [ ] 自动生成 Issue 的提交信息
-- [ ] 第一步的 `afl-fuzz` 改为自动执行
+- [x] ~~第一步的 `afl-fuzz` 改为自动执行~~
 - [ ] 自动识别漏洞类型(CWE)
 - [ ] 自动提交 CVE 申请 🤔
 - [x] ~~添加邮件消息推送方式~~
 
 ## 最近更新内容
 
+- 2023-07-19: 修复先前collect的poc会被删掉的bug
 - 2023-07-15: 改为自动调用afl-fuzz，且保存到tmux会话
 - 2022-11-02: 添加对collections内的crashes去重操作, 修复一些小bug
