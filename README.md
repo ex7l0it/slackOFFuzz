@@ -12,7 +12,8 @@ sudo apt update && sudo apt install tmux python3 python3-pip -y
 pip3 install -r requirements.txt
 ```
 
-> 测试服务器环境:  
+> 测试服务器系统版本：Ubuntu 20.04
+> 已安装 AFL++
 
 
 ## 使用说明

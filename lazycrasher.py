@@ -333,7 +333,7 @@ def run_task(task_name):
         with open(os.path.join(task_path, "info.txt"), "r") as f:
             input_line = f.read()
         
-        afl_command = "afl-fuzz -i {} -o {} -M fuzzer01 -- {}".format(
+        afl_command = "afl-fuzz -i {} -o {} -m none -M fuzzer01 -- {}".format(
             os.path.join(task_path, "input"),
             os.path.join(task_path, "output"),
             input_line
@@ -350,7 +350,7 @@ def run_task(task_name):
         # 启动一个新的窗口
         tmux_window = tmux_session.new_window(window_name="slave-fuzzer02")
         tmux_pane = tmux_window.attached_pane
-        afl_command = "afl-fuzz -i {} -o {} -S fuzzer02 -- {}".format(
+        afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer02 -- {}".format(
             os.path.join(task_path, "input"),
             os.path.join(task_path, "output"),
             input_line
@@ -360,7 +360,7 @@ def run_task(task_name):
         # 启动一个新的窗口
         tmux_window = tmux_session.new_window(window_name="slave-fuzzer03")
         tmux_pane = tmux_window.attached_pane
-        afl_command = "afl-fuzz -i {} -o {} -S fuzzer03 -- {}".format(
+        afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer03 -- {}".format(
             os.path.join(task_path, "input"),
             os.path.join(task_path, "output"),
             input_line
