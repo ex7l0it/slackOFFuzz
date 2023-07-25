@@ -328,13 +328,20 @@ def run_task(task_name):
     if tmux_session:
         print(Red, "[!]", Norm, f"Task {task_name} already running! Please use 'tmux attach -t {tmux_session_name}' to attach the tmux session.")
         exit(0)
+
+    # 检查output目录中是否有内容
+    old_task_flag = False
+    output_path = os.path.join(task_path, "output")
+    if os.path.exists(output_path) and os.listdir(output_path):
+        old_task_flag = True
+
     # 读取 fuzz target 程序绝对路径以及程序参数
     try:
         with open(os.path.join(task_path, "info.txt"), "r") as f:
             input_line = f.read()
         
         afl_command = "afl-fuzz -i {} -o {} -m none -M fuzzer01 -- {}".format(
-            os.path.join(task_path, "input"),
+            os.path.join(task_path, "input") if not old_task_flag else '-',
             os.path.join(task_path, "output"),
             input_line
         )
@@ -351,7 +358,7 @@ def run_task(task_name):
         tmux_window = tmux_session.new_window(window_name="slave-fuzzer02")
         tmux_pane = tmux_window.attached_pane
         afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer02 -- {}".format(
-            os.path.join(task_path, "input"),
+            os.path.join(task_path, "input") if not old_task_flag else '-',
             os.path.join(task_path, "output"),
             input_line
         )
@@ -361,7 +368,7 @@ def run_task(task_name):
         tmux_window = tmux_session.new_window(window_name="slave-fuzzer03")
         tmux_pane = tmux_window.attached_pane
         afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer03 -- {}".format(
-            os.path.join(task_path, "input"),
+            os.path.join(task_path, "input") if not old_task_flag else '-',
             os.path.join(task_path, "output"),
             input_line
         )
