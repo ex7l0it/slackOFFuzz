@@ -313,6 +313,14 @@ def add_task(task_name):
     else:
         print(Red, "[!]", Norm, f"Task {task_name} already exists!")
     
+def check_command_output(output):
+    pattern = "[CHECK COMMAND RETURN CODE] 1 [CHECK COMMAND RETURN CODE]"
+    if pattern in output:
+        output = "\n".join(output)
+        return output.replace(pattern, "")
+    else:
+        return None
+
 def run_task(task_name):
     # 检查 FuzzProjectDataPath 目录是否存在
     if not os.path.exists(FuzzProjectDataPath):
@@ -337,13 +345,15 @@ def run_task(task_name):
 
     # 读取 fuzz target 程序绝对路径以及程序参数
     try:
+        checker_cmd = "; echo \"[CHECK COMMAND RETURN CODE] $? [CHECK COMMAND RETURN CODE]\""
         with open(os.path.join(task_path, "info.txt"), "r") as f:
             input_line = f.read()
         
-        afl_command = "afl-fuzz -i {} -o {} -m none -M fuzzer01 -- {}".format(
+        afl_command = "afl-fuzz -i {} -o {} -m none -M fuzzer01 -- {} {}".format(
             os.path.join(task_path, "input") if not old_task_flag else '-',
             os.path.join(task_path, "output"),
-            input_line
+            input_line,
+            checker_cmd
         )
         # 创建一个 tmux 会话并运行 afl-fuzz
         tmux_session = libtmux.Server().new_session(
@@ -352,32 +362,45 @@ def run_task(task_name):
         tmux_window = tmux_session.attached_window
         tmux_window.rename_window("master-fuzzer01")
         tmux_pane = tmux_window.attached_pane
-        tmux_pane.send_keys(afl_command)
+        tmux_pane.send_keys(afl_command, enter=True)
+        time.sleep(1)
+        output = check_command_output(tmux_pane.cmd("capture-pane", "-p").stdout)
+        if output:
+            print(Red, "[!]", Norm, "Run command error! The following is a part of the error output:")
+            print(output)
+            tmux_session.kill_session()
+            exit(1)
+        else:
+            print(Green, "[+]", Norm, "Start master-fuzzer01 successfully!")
 
         # 启动一个新的窗口
         tmux_window = tmux_session.new_window(window_name="slave-fuzzer02")
         tmux_pane = tmux_window.attached_pane
-        afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer02 -- {}".format(
+        afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer02 -- {} {}".format(
             os.path.join(task_path, "input") if not old_task_flag else '-',
             os.path.join(task_path, "output"),
-            input_line
+            input_line,
+            checker_cmd
         )
-        tmux_pane.send_keys(afl_command)
+        tmux_pane.send_keys(afl_command, enter=True)
 
         # 启动一个新的窗口
         tmux_window = tmux_session.new_window(window_name="slave-fuzzer03")
         tmux_pane = tmux_window.attached_pane
-        afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer03 -- {}".format(
+        afl_command = "afl-fuzz -i {} -o {} -m none -S fuzzer03 -- {} {}".format(
             os.path.join(task_path, "input") if not old_task_flag else '-',
             os.path.join(task_path, "output"),
-            input_line
+            input_line,
+            checker_cmd
         )
-        tmux_pane.send_keys(afl_command)
+        tmux_pane.send_keys(afl_command, enter=True)
 
         print(Green, "[+]", Norm, "Start fuzzing..., Please use `tmux a -t {}` to attach the tmux session.".format(tmux_session_name))
 
     except Exception as e:
         print(Red, "[!]", Norm, "Read task info failed!", e)
+        # kill tmux session
+        tmux_session.kill_session()
         exit(1)
 
 if __name__ == '__main__':

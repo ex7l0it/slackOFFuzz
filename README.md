@@ -174,6 +174,7 @@ Email_msg_enabled = False
 
 ## 最近更新内容
 
+- 2023-07-27: 调用tmux执行afl-fuzz时如果报错直接打印出报错信息，然后销毁tmux会话
 - 2023-07-25: 能够继续执行停止的fuzz任务
 - 2023-07-19: 修复先前collect的poc会被删掉的bug
 - 2023-07-15: 改为自动调用afl-fuzz，且保存到tmux会话
